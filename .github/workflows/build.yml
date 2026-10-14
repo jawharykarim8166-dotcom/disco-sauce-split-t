@@ -8,24 +8,24 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        juce: [ '7.0.12', '8.0.12', '8.0.8' ]
     steps:
       - uses: actions/checkout@v4
 
-      - name: List files
+      - name: Prepare CMake file
         shell: pwsh
         run: |
-          cmake --version 2>&1 | Tee-Object -FilePath tree.txt
-          Get-ChildItem -Recurse -Force -Name | Where-Object { $_ -notlike '.git\*' } | Tee-Object -FilePath tree.txt -Append
-
-      - name: Simplify CMake file
-        shell: pwsh
-        run: |
-          (Get-Content CMakeLists.txt) -replace 'VST3_CATEGORIES Fx Tools','' | Set-Content CMakeLists.txt
+          (Get-Content CMakeLists.txt) -replace 'GIT_TAG 7.0.12', 'GIT_TAG ${{ matrix.juce }}' | Set-Content CMakeLists.txt
+          Get-Content CMakeLists.txt | Select-String 'GIT_TAG' | Tee-Object -FilePath tree.txt
+          cmake --version 2>&1 | Tee-Object -FilePath tree.txt -Append
 
       - name: Configure
         shell: pwsh
         run: |
-          cmake -S . -B build -A x64 -DCMAKE_POLICY_VERSION_MINIMUM=3.5 2>&1 | Tee-Object -FilePath configure-log.txt
+          cmake -S . -B build -A x64 "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" 2>&1 | Tee-Object -FilePath configure-log.txt
 
       - name: Build
         shell: pwsh
@@ -36,7 +36,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-logs
+          name: build-logs-${{ matrix.juce }}
           path: |
             tree.txt
             configure-log.txt
@@ -46,7 +46,7 @@ jobs:
       - name: Upload plugin
         uses: actions/upload-artifact@v4
         with:
-          name: DiscoSauceSplitt-Windows
+          name: DiscoSauceSplitt-Windows-JUCE-${{ matrix.juce }}
           path: |
             build/DiscoSauceSplitt_artefacts/Release/VST3
             build/DiscoSauceSplitt_artefacts/Release/Standalone
